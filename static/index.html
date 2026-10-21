@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body class="sem-sessao">
+  <div id="auth-tela" class="auth-tela" hidden></div>
+  <aside class="sidebar">
+    <div class="brand" id="brand"></div>
+    <nav>
+      <a href="#/afazeres" data-route="afazeres" data-perfis="admin,responsavel_caixa,funcionario"><span class="ico">✓</span>Lista de tarefas<span class="nav-badge" id="afazeres-badge" hidden></span></a>
+      <a href="#/portal" data-route="portal" data-perfis="admin,responsavel_caixa,funcionario"><span class="ico">◉</span>Meu portal</a>
+      <a href="#/painel" data-route="painel"><span class="ico">▦</span>Dashboard</a>
+      <a href="#/inbox" data-route="inbox"><span class="ico">✉</span>Caixa de entrada<span class="nav-badge" id="inbox-badge" hidden></span></a>
+      <a href="#/faturamento" data-route="vendas"><span class="ico">▤</span>Relatórios e resultados</a>
+      <a href="#/caixa" data-route="caixa" data-perfis="admin,responsavel_caixa"><span class="ico">▣</span>Fechamento de caixa</a>
+      <a href="#/fin/resumo" data-route="fluxo-caixa"><span class="ico">⇅</span>Fluxo de caixa</a>
+      <a href="#/estoque?aba=contagem" data-route="estoque" data-perfis="admin,estoque"><span class="ico">▥</span>Estoque</a>
+      <a href="#/cardapio" data-route="cardapio" data-perfis="admin,responsavel_caixa,funcionario"><span class="ico">◈</span>Cardápio</a>
+      <a href="#/rh" data-route="rh"><span class="ico">☺</span>RH</a>
+      <div class="nav-sep"></div>
+      <a href="#/cadastros" data-route="cadastros"><span class="ico">☷</span>Cadastros</a>
+    </nav>
+    <div class="usuario-box" id="usuario-box"></div>
+    <div class="etl" id="etl"></div>
+  </aside>
+
+  <main>
+    <header class="page-head">
+      <div>
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1 id="title"></h1>
+        <p class="lede" id="lede"></p>
+        <div class="tabs subtabs" id="subtabs" hidden></div>
+      </div>
+      <div class="period" id="period" hidden>
+        <div class="chips" id="chips"></div>
+        <div class="custom">
+          <input type="date" id="ini" aria-label="Data inicial">
+          <span>até</span>
+          <input type="date" id="fim" aria-label="Data final">
+        </div>
+      </div>
+    </header>
+    <section id="view" class="view"></section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/fin.js"></script>
+  <script src="/static/boleto.js"></script>
+  <script src="/static/caixa.js"></script>
+  <script src="/static/cadastros.js"></script>
+  <script src="/static/estoque.js"></script>
+  <script src="/static/contas.js"></script>
+  <script src="/static/inbox.js"></script>
+  <script src="/static/cardapio.js"></script>
+  <script src="/static/contagem.js"></script>
+  <script src="/static/compras.js"></script>
+  <script src="/static/rh.js"></script>
+  <script src="/static/portal.js"></script>
+  <script src="/static/afazeres.js"></script>
+  <script src="/static/producao.js"></script>
+  <script src="/static/checklists.js"></script>
+  <script src="/static/empresa.js"></script>
+  <script src="/static/sessao.js"></script>
+  <dialog id="dlg" class="dlg"></dialog>
+</body>
+</html>

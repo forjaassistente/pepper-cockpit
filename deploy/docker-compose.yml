@@ -1,0 +1,84 @@
+# Pepper BI - Metabase (Fase 1, opção C: acesso só por túnel SSH)
+# Projeto separado do /opt/pepper-sally. Usa o Postgres existente pela rede pepper-sally-net.
+name: pepper-bi
+
+services:
+  metabase:
+    image: metabase/metabase:v0.63.20.2
+    container_name: pepper-bi-metabase
+    restart: unless-stopped
+    # Só localhost: nada público. Acesso: ssh -L 3000:localhost:3000 root@<vps>
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: metabase_app
+      MB_DB_USER: metabase_app
+      MB_DB_PASS: ${METABASE_APP_PASSWORD}
+      # Criptografa as credenciais dos bancos salvas no Metabase. NÃO perder esta chave.
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY}
+      JAVA_TIMEZONE: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+      JAVA_OPTS: "-Xms256m -Xmx1g"
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_JETTY_HOST: 0.0.0.0
+    mem_limit: 2g
+    networks:
+      - pepper-sally-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ETL: não sobe com "up". Roda sob demanda/cron: docker compose run --rm etl nibo.py
+  etl:
+    build: ./etl
+    image: pepper-bi-etl:local
+    profiles: ["etl"]
+    environment:
+      NIBO_API_TOKEN: ${NIBO_API_TOKEN}
+      BI_ETL_PASSWORD: ${BI_ETL_PASSWORD}
+      PGHOST: postgres
+    volumes:
+      - ./etl/google-sa.json:/secrets/google-sa.json:ro
+    mem_limit: 512m
+    networks:
+      - pepper-sally-net
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Cockpit (app próprio): só localhost, acesso pelo túnel SSH -L 3001:localhost:3001
+  cockpit:
+    build: ./app
+    image: pepper-bi-cockpit:local
+    container_name: pepper-bi-cockpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:8000"
+    environment:
+      PGHOST: postgres
+      BI_READER_PASSWORD: ${BI_READER_PASSWORD}
+      FIN_APP_PASSWORD: ${FIN_APP_PASSWORD}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./anexos:/data/anexos
+    mem_limit: 768m
+    networks:
+      - pepper-sally-net
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  pepper-sally-net:
+    external: true
+    name: pepper-sally_pepper-sally-net
