@@ -1,0 +1,123 @@
+# Cockpit — instalação completa em outra máquina (desenvolvimento / homologação).
+# Diferente do deploy/docker-compose.yml de produção: aqui o Postgres vem junto
+# (não depende do postgres do bot nem da rede pepper-sally-net).
+#
+# Uso, a partir da raiz do repositório:
+#   cp deploy/local/.env.example deploy/.env      # e preencher as senhas
+#   docker compose -f deploy/docker-compose.local.yml up -d --build
+#   Cockpit:  http://localhost:3001   (primeiro acesso cria o admin)
+#   Metabase: http://localhost:3000
+#
+# No primeiro "up" o banco é criado do zero: papéis, schemas raw/bi (ETL) e
+# todas as migrações de sql/ em ordem (deploy/local/init-db.sh).
+# Migração nova depois disso: ver deploy/local/README.md.
+name: pepper-bi-local
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: pepper-bi-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?preencha POSTGRES_PASSWORD no deploy/.env}
+      BI_ETL_PASSWORD: ${BI_ETL_PASSWORD:?preencha BI_ETL_PASSWORD}
+      BI_READER_PASSWORD: ${BI_READER_PASSWORD:?preencha BI_READER_PASSWORD}
+      FIN_APP_PASSWORD: ${FIN_APP_PASSWORD:?preencha FIN_APP_PASSWORD}
+      METABASE_APP_PASSWORD: ${METABASE_APP_PASSWORD:?preencha METABASE_APP_PASSWORD}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
+    # Só localhost. Porta 5433 para não brigar com um Postgres já instalado na máquina.
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./local/init-db.sh:/docker-entrypoint-initdb.d/00-init-db.sh:ro
+      - ../sql:/migrations/sql:ro
+      - ../etl:/migrations/etl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pepper_bi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  metabase:
+    image: metabase/metabase:v0.63.20.2
+    container_name: pepper-bi-local-metabase
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: metabase_app
+      MB_DB_USER: metabase_app
+      MB_DB_PASS: ${METABASE_APP_PASSWORD}
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY:?preencha MB_ENCRYPTION_SECRET_KEY}
+      JAVA_TIMEZONE: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+      JAVA_OPTS: "-Xms256m -Xmx1g"
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_JETTY_HOST: 0.0.0.0
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  cockpit:
+    build: ..
+    image: pepper-bi-cockpit:local
+    container_name: pepper-bi-local-cockpit
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3001:8000"
+    environment:
+      PGHOST: postgres
+      BI_READER_PASSWORD: ${BI_READER_PASSWORD}
+      FIN_APP_PASSWORD: ${FIN_APP_PASSWORD}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TZ: America/Sao_Paulo
+    volumes:
+      - anexos:/data/anexos
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ETL: não sobe com "up". Carga sob demanda:
+  #   docker compose -f deploy/docker-compose.local.yml --profile etl run --rm etl nibo.py
+  etl:
+    build: ../etl
+    image: pepper-bi-etl:local
+    profiles: ["etl"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      NIBO_API_TOKEN: ${NIBO_API_TOKEN:-}
+      BI_ETL_PASSWORD: ${BI_ETL_PASSWORD}
+      PGHOST: postgres
+    volumes:
+      - ../etl/google-sa.json:/secrets/google-sa.json:ro
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  pgdata:
+  anexos:
